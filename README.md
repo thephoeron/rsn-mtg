@@ -14,11 +14,14 @@ Available from Quicklisp:
 * Postmodern
 * CL-CSS
 * CL-WHO
+* Parenscript
 * DRAKMA
-* CHTML
+* Closure-HTML
+* CXML-STP
 * CL-FAD
-* LET-OVER-LAMBDA
-* CL-ISAAC
+* CL-PPCRE
+* SPLIT-SEQUENCE
+* ARNESI
 
 Clone into `~/quicklisp/local-projects/`:
 
