@@ -5,7 +5,4 @@
 
 (in-package :rsn-mtg)
 
-(defun sync-db-from-gatherer ()
-  "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database.")
-
 ;; EOF

@@ -7,11 +7,12 @@
 
 (defpackage #:rsn-mtg
     (:nicknames #:mtg)
-    (:use :cl 
+    (:use :cl
           :hunchentoot
           :cl-who
           :cl-css
-          :postmodern)
+          :postmodern
+          :split-sequence)
     (:export #:*rsn-mtg-version*
              #:sync-db-from-gatherer))
 

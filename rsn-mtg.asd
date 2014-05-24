@@ -30,9 +30,11 @@
                  :cxml
                  :cxml-stp
                  :cl-fad
-                 :cl-ppcre)
+                 :cl-ppcre
+                 :split-sequence)
     :components ((:file "packages")
                  (:file "db")
+                 (:file "scraper")
                  (:file "scripts")
                  (:file "styles")
                  (:file "templates")

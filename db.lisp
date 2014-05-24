@@ -5,11 +5,13 @@
 
 (in-package :rsn-mtg)
 
+(defvar *default-database-connection* (list "database" "user" "password" "host"))
+
 ;; EXPANSION SET Table
 (defclass rsn-mtg-expansion ()
   ((ID :col-type serial :initarg :id :reader id)
    (NAME :col-type string :initarg :name :accessor name)
-   (SYMBOL :col-type string :initarg :symbol :accessor symbol)
+   (EXP-SYMBOL :col-type string :initarg :exp-symbol :accessor exp-symbol)
    (UNCOMMON-SYMBOL :col-type string :initarg :uncommon-symbol :accessor uncommon-symbol)
    (RARE-SYMBOL :col-type string :initarg :rare-symbol :accessor rare-symbol)
    (MYTHIC-SYMBOL :col-type string :initarg :mythic-symbol :accessor mythic-symbol)
@@ -27,6 +29,7 @@
 ;; CARD Table
 (defclass rsn-mtg-card ()
   ((ID :col-type serial :initarg :id :reader id)
+   (M-ID :col-type integer :initarg :m-id :accessor m-id)
    (NAME :col-type string :initarg :name :accessor name)
    (MANA-COST :col-type string :initarg :mana-cost :accessor mana-cost)
    (COLOR :col-type string :initarg :color :accessor color)
@@ -53,10 +56,17 @@
   :column)
 
 (defprepared get-card-id-by-name-and-expansion
-  (:select 'id :from 'rsn-mtg-card 
+  (:select 'id :from 'rsn-mtg-card
            :where (:and (:= 'name '$1)
                         (:= 'expansion-id '$2)))
   :single!)
+
+(defgeneric expansion (card)
+  (:documentation "Get the Set/Expansion DAO for the given card."))
+
+(defmethod expansion ((card rsn-mtg-card))
+  (let ((exp-id (slot-value card 'expansion-id)))
+    (postmodern:get-dao 'rsn-mtg-expansion exp-id)))
 
 ;; CARD QUANTITY Table
 
