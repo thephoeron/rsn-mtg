@@ -12,7 +12,6 @@
           :cl-who
           :cl-css
           :postmodern
-          :cl-fad
           :split-sequence
           :arnesi)
     (:export #:*rsn-mtg-version*
