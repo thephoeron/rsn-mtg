@@ -156,7 +156,7 @@
 (defun sync-db-from-gatherer (&key (db *default-database-connection*))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database from Gatherer...")
-  (loop for i below 12 ; 0000000
+  (loop for i below 12 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         with m-id = (+ i 1)
         do (cond ((not m-id) nil)
                  ((not (valid-m-id-p m-id))
