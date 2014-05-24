@@ -14,10 +14,19 @@
           :postmodern
           :split-sequence)
     (:export #:*rsn-mtg-version*
+             #:*default-img-dir*
              #:sync-db-from-gatherer))
 
 ;; see asdf system definition
 (defvar rsn-mtg:*rsn-mtg-version*
   #.rsn-mtg-asd::*rsn-mtg-version*)
+
+(defvar rsn-mtg:*default-dir*
+  (pathname (directory-namestring #.(or *compile-file-truename*
+                                        *load-truename*)))
+    "The directory path of the current file.")
+
+(defvar rsn-mtg:*default-img-dir*
+  (merge-pathnames "static/images/rsn-mtg/" rsn-mtg:*default-dir*))
 
 ;; EOF
