@@ -31,7 +31,8 @@
                  :cxml-stp
                  :cl-fad
                  :cl-ppcre
-                 :split-sequence)
+                 :split-sequence
+                 :arnesi)
     :components ((:file "packages")
                  (:file "db")
                  (:file "scraper")

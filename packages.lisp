@@ -12,21 +12,26 @@
           :cl-who
           :cl-css
           :postmodern
-          :split-sequence)
+          :cl-fad
+          :split-sequence
+          :arnesi)
     (:export #:*rsn-mtg-version*
+             #:*default-dir*
              #:*default-img-dir*
              #:sync-db-from-gatherer))
 
 ;; see asdf system definition
-(defvar rsn-mtg:*rsn-mtg-version*
+(defvar rsn-mtg::*rsn-mtg-version*
   #.rsn-mtg-asd::*rsn-mtg-version*)
 
-(defvar rsn-mtg:*default-dir*
+(defvar rsn-mtg::*default-dir*
   (pathname (directory-namestring #.(or *compile-file-truename*
                                         *load-truename*)))
     "The directory path of the current file.")
 
-(defvar rsn-mtg:*default-img-dir*
+(defvar rsn-mtg::*default-img-dir*
   (merge-pathnames "static/images/rsn-mtg/" rsn-mtg:*default-dir*))
+
+(ensure-directories-exist rsn-mtg::*default-img-dir*)
 
 ;; EOF

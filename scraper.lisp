@@ -56,7 +56,8 @@
 
 (defun scrape-gatherer-and-insert-mtg-card-into-db (m-id &key (db *default-database-connection*))
   "Query the Gatherer database for the Multiverse ID *m-id* card, parse all data, and if the record does not already exist, store in the local database."
-  (let* ((query (list (cons "multiverseid" (format nil "~D" m-id))))
+  (let* ((m-id-str (format nil "~D" m-id))
+         (query (list (cons "multiverseid" m-id-str)))
          (str (drakma:http-request "http://gatherer.wizards.com/Pages/Card/Details.aspx"
                                    :parameters query))
          (document (chtml:parse str (cxml-stp:make-builder)))
@@ -74,6 +75,7 @@
          (rarity nil)
          (artist nil)
          (image nil)
+         (full-image-path nil)
          (the-set-id nil)
          (the-card nil))
     (format t "~%;; Inserting Multiverse ID: ~D, " m-id)
@@ -127,6 +129,23 @@
                    ; (setf the-set-id (get-expansion-id-by-name set-name))
                    (format t "Set: ~A. " set-name))))
               (t nil))))
+    (setf image (format nil "~D-~A.jpg" m-id (string-downcase (substitute #\- #\Space name))))
+    (setf full-image-path (concatenate 'string (namestring *default-img-dir*) image))
+    ;; Uncomment following form to enable downloading of MTG Card images
+    ; (with-open-file (file full-image-path
+    ;                       :direction :output
+    ;                       :if-does-not-exist :create
+    ;                       :if-exists :supersede
+    ;                       :element-type '(unsigned-byte 8))
+    ;   (let* ((query (list (cons "multiverseid" m-id-str)
+    ;                       (cons "type" "card")))
+    ;          (input (drakma:http-request "http://gatherer.wizards.com/Handlers/Image.ashx"
+    ;                                     :parameters query
+    ;                                     :want-stream t)))
+    ;     (awhile (read-byte input nil nil)
+    ;       (write-byte it file))
+    ;     (close input))
+    ;     (format t "Card image ~A successfuly downloaded." image))
     (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape)))
 
 (defun scrape-gatherer-and-update-mtg-card-in-db (m-id &key (db *default-database-connection*))
