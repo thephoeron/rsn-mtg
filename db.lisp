@@ -23,7 +23,7 @@
   (!dao-def))
 
 (defprepared get-expansion-id-by-name
-  (:select 'id :from 'rsn-mtg-expansion :where (:= 'name '$1))
+  (:select 'id :from 'rsn-mtg-expansion :where (:ilike 'name '$1))
   :single!)
 
 ;; CARD Table
@@ -59,6 +59,10 @@
   (:select 'id :from 'rsn-mtg-card
            :where (:and (:= 'name '$1)
                         (:= 'expansion-id '$2)))
+  :single!)
+
+(defprepared get-card-id-by-multiverse-id
+  (:select 'id :from 'rsn-mtg-card :where (:= 'm-id '$1))
   :single!)
 
 (defgeneric expansion (card)
