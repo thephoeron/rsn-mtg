@@ -15,6 +15,21 @@
       (remove (code-char #x0d)
         str))))
 
+;; from Common Lisp Cookbook -- Strings: http://cl-cookbook.sourceforge.net/strings.html#manip
+(defun replace-all (string part replacement &key (test #'char=))
+"Returns a new string in which all the occurences of the part is replaced with replacement."
+    (with-output-to-string (out)
+      (loop with part-length = (length part)
+            for old-pos = 0 then (+ pos part-length)
+            for pos = (search part string
+                              :start2 old-pos
+                              :test test)
+            do (write-string string out
+                             :start old-pos
+                             :end (or pos (length string)))
+            when pos do (write-string replacement out)
+            while pos)))
+
 ;; Predicate Tests for STP objects
 
 (defun class-row-p (obj)
@@ -34,6 +49,12 @@
   (and (typep obj 'stp:element)
        (equal (stp:local-name obj) "div")
        (equal (stp:attribute-value obj "class") "value")))
+
+(defun class-cardtextbox-p (obj)
+  "Test to verify object *obj* is an STP element div with class attribute value 'cardtextbox'."
+  (and (typep obj 'stp:element)
+       (equal (stp:local-name obj) "div")
+       (equal (stp:attribute-value obj "class") "cardtextbox")))
 
 (defun img-tag-p (obj)
   "Test to verify object *obj* is an STP element img."
@@ -56,6 +77,8 @@
 
 (defun scrape-gatherer-and-insert-mtg-card-into-db (m-id &key (db *default-database-connection*))
   "Query the Gatherer database for the Multiverse ID *m-id* card, parse all data, and if the record does not already exist, store in the local database."
+  ;; Wrap local database connectivity in `(postmodern:with-connection db ...)`
+  ;; This function should also check if all the data matches, using card-matches-p, and update instead of insert.
   (let* ((m-id-str (format nil "~D" m-id))
          (query (list (cons "multiverseid" m-id-str)))
          (str (drakma:http-request "http://gatherer.wizards.com/Pages/Card/Details.aspx"
@@ -122,12 +145,54 @@
                  (when (class-value-p tag)
                    (setf spell-type (strip-string (stp:string-value tag)))
                    (format t "Type: ~A, " spell-type))))
+              ((search "textRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (let* ((text-pool ""))
+                     (stp:do-children (par tag)
+                       (when (class-cardtextbox-p par)
+                         (stp:do-children (img par)
+                           (if (img-tag-p img)
+                               (setf text-pool (format nil "~@{~A~^ ~}" (if text-pool text-pool "") (format nil "[~A]" (stp:attribute-value img "alt"))))
+                               (setf text-pool (format nil "~@{~A~^ ~}" (if text-pool text-pool "") (format nil "~A" (strip-string (stp:string-value img)))))))
+                         (setf text-pool (format nil "~@{~A~^~}" (if text-pool text-pool "") "<br>"))))
+                     (setf card-text (string-trim "<br> " text-pool)))
+                   (if card-text (format t "Text: ~A, " card-text) (format t "Text: ~A, " "N")))))
+              ((search "flavorRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (setf flavor-text (strip-string (stp:string-value tag)))
+                   (if flavor-text (format t "Flavor: ~A, " flavor-text) (format t "Flavor: ~A, " "N")))))
+              ((search "ptRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (let* ((pt-list (split-sequence #\/ (strip-string (stp:string-value tag))))
+                          (pow (car pt-list))
+                          (tuf (cadr pt-list)))
+                     (setf power (strip-string pow)
+                           toughness (strip-string tuf)))
+                   (format t "P/T: ~@{~A~^/~}, " power toughness))))
               ((search "setRow" (stp:attribute-value div "id") :from-end t)
                (stp:do-children (tag div)
                  (when (class-value-p tag)
                    (setf set-name (strip-string (stp:string-value tag)))
                    ; (setf the-set-id (get-expansion-id-by-name set-name))
-                   (format t "Set: ~A. " set-name))))
+                   (format t "Set: ~A, " set-name))))
+              ((search "rarityRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (setf rarity (strip-string (stp:string-value tag)))
+                   (format t "Rarity: ~A, " rarity))))
+              ((search "numberRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (setf collectors-num (parse-integer (strip-string (stp:string-value tag)) :junk-allowed t))
+                   (format t "CN: ~D, " collectors-num))))
+              ((search "artistRow" (stp:attribute-value div "id") :from-end t)
+               (stp:do-children (tag div)
+                 (when (class-value-p tag)
+                   (setf artist (strip-string (stp:string-value tag)))
+                   (format t "Artist: ~A. " artist))))
               (t nil))))
     (setf image (format nil "~D-~A.jpg" m-id (string-downcase (substitute #\- #\Space name))))
     (setf full-image-path (concatenate 'string (namestring *default-img-dir*) image))
@@ -146,12 +211,22 @@
     ;       (write-byte it file))
     ;     (close input))
     ;     (format t "Card image ~A successfuly downloaded." image))
+    ;; need to search the db to get Set/Expansion ID number by name
+    ; (setf the-set-id (get-expansion-id-by-name set-name))
+    ;; create the DAO for the card and insert/update the database
+    ; (setf the-card (make-instance 'rsn-mtg-card :m-id m-id :name name :mana-cost mana-cost
+    ;                                             :color color :spell-type spell-type :collectors-number collectors-num
+    ;                                             :converted-mana-cost converted-mana-cost :card-text card-text :flavor-text flavor-text
+    ;                                             :power power :toughness toughness :expansion-id the-set-id
+    ;                                             :rarity rarity :artist artist :image image))
+    ; (postmodern:upsert-dao the-card)
     (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape)))
 
-(defun scrape-gatherer-and-update-mtg-card-in-db (m-id &key (db *default-database-connection*))
-  "Update an existing local database record for Multiverse ID *m-id* card from Gatherer. Triggers a condition if DAO for *m-id* does not exist."
-  (format t "~%;; Updating Multiverse ID: ~D DAO record... " m-id)
-  (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape))
+;; Remove, redundant
+; (defun scrape-gatherer-and-update-mtg-card-in-db (m-id &key (db *default-database-connection*))
+;   "Update an existing local database record for Multiverse ID *m-id* card from Gatherer. Triggers a condition if DAO for *m-id* does not exist."
+;   (format t "~%;; Updating Multiverse ID: ~D DAO record... " m-id)
+;   (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape))
 
 (defun sync-db-from-gatherer (&key (db *default-database-connection*))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
