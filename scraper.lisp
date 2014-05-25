@@ -69,7 +69,7 @@
   "Use Closure HTML and CXML-STP packages to parse the Gatherer Database card detail pages and normalize the data. Returns multiple values, name, mana-cost, color, spell-type, collectors-num, converted-mana-cost, card-text, flavor-text, power, toughness, set-name, rarity, artist, and image."
   (let* ((m-id-str (format nil "~D" m-id))
          (name "none")
-         (mana-cost "none")
+         (mana-cost "")
          (color "none")
          (spell-type "none")
          (collectors-num m-id)
@@ -225,7 +225,7 @@
         (parse-card m-id document)
       (if (and the-card
                (string-equal (name the-card) name)
-               ;(string-equal (mana-cost the-card) mana-cost)
+               (string-equal (mana-cost the-card) mana-cost)
                ;(string-equal (color the-card) color)
                ;(string-equal (spell-type the-card) spell-type)
                ;(equalp (collectors-number the-card) collectors-num)
@@ -306,7 +306,7 @@
 (defun sync-db-from-gatherer (&key (db *default-database-connection*))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 18 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i below 30 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         with m-id = (+ i 1)
         with query = (list (cons "multiverseid" (format nil "~D" m-id)))
         with str = (drakma:http-request *gatherer-card-url* :parameters query)
