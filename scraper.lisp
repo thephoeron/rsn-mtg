@@ -65,12 +65,9 @@
 (defvar *gatherer-card-url* "http://gatherer.wizards.com/Pages/Card/Details.aspx")
 (defvar *gatherer-img-url* "http://gatherer.wizards.com/Handlers/Image.ashx")
 
-(defun parse-card (m-id)
+(defun parse-card (m-id document)
   "Use Closure HTML and CXML-STP packages to parse the Gatherer Database card detail pages and normalize the data. Returns multiple values, name, mana-cost, color, spell-type, collectors-num, converted-mana-cost, card-text, flavor-text, power, toughness, set-name, rarity, artist, and image."
   (let* ((m-id-str (format nil "~D" m-id))
-         (query (list (cons "multiverseid" m-id-str)))
-         (str (drakma:http-request *gatherer-card-url* :parameters query))
-         (document (chtml:parse str (cxml-stp:make-builder)))
          (name "none")
          (mana-cost "none")
          (color "none")
@@ -192,7 +189,7 @@
     (return-from parse-card (values name mana-cost color spell-type collectors-num converted-mana-cost card-text flavor-text power toughness set-name rarity artist image))))
 
 (defun download-and-save-card-image (m-id path)
-  "Downloads and saves to disk the MTG card image for Multiverse ID *m-id* to Pathname *path*."
+  "Downloads and saves to disk the MTG card image for Multiverse ID *m-id* to Pathname *path*. Uses AWHILE macro from ARNESI package."
   (ensure-directories-exist path)
   (with-open-file (file path
                         :direction :output
@@ -218,17 +215,14 @@
           t
           nil))))
 
-(defun card-matches-p (m-id &key (db *default-database-connection*))
+(defun card-matches-p (m-id document &key (db *default-database-connection*))
   "Compares the card DAO in the local database against Gatherer to see if all the fields match."
   (let* ((m-id-str (format nil "~D" m-id))
-         (query (list (cons "multiverseid" m-id-str)))
-         (str (drakma:http-request *gatherer-card-url* :parameters query))
-         (document (chtml:parse str (cxml-stp:make-builder)))
          (the-card nil))
     (postmodern:with-connection db
       (setf the-card (handler-case (postmodern:get-dao 'rsn-mtg-card (get-card-id-by-multiverse-id m-id)) (error () nil))))
     (multiple-value-bind (name mana-cost color spell-type collectors-num cmc card-text flavor-text power toughness set-name rarity artist image the-set-id)
-        (parse-card m-id)
+        (parse-card m-id document)
       (if (and the-card
                (string-equal (name the-card) name)
                ;(string-equal (mana-cost the-card) mana-cost)
@@ -253,10 +247,10 @@
   ;; An invalid Multiverse ID redirects to Gatherer search page.  Not ideal, but that can be anticipated.
   t)
 
-(defun scrape-gatherer-and-insert-mtg-card-into-db (m-id &key (db *default-database-connection*))
+(defun scrape-gatherer-and-insert-mtg-card-into-db (m-id document &key (db *default-database-connection*))
   "Query the Gatherer database for the Multiverse ID *m-id* card, parse all data; if the record already exists, update it, or insert it into the local database."
   (multiple-value-bind (name mana-cost color spell-type collectors-num converted-mana-cost card-text flavor-text power toughness set-name rarity artist image)
-      (parse-card m-id)
+      (parse-card m-id document)
     (let* ((full-image-path (concatenate 'string (namestring *default-img-dir*) image))
            (the-set-id (handler-case (postmodern:with-connection db (get-expansion-id-by-name set-name)) (error () nil)))
            (the-card nil))
@@ -314,18 +308,24 @@
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
   (loop for i below 18 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         with m-id = (+ i 1)
+        with query = (list (cons "multiverseid" (format nil "~D" m-id)))
+        with str = (drakma:http-request *gatherer-card-url* :parameters query)
+        with document = (chtml:parse str (cxml-stp:make-builder))
         do (cond ((not m-id) nil)
                  ((not (valid-m-id-p m-id))
                   (format t "~%;; Multiverse ID: ~D does not specify a valid MTG Card. Skipping..." m-id))
                  ((and (card-exists-p m-id :db db)
-                       (card-matches-p m-id :db db))
+                       (card-matches-p m-id document :db db))
                   (format t "~%;; Skipping Multiverse ID: ~D" m-id))
                  ((and (card-exists-p m-id :db db)
-                       (not (card-matches-p m-id :db db)))
-                  (scrape-gatherer-and-insert-mtg-card-into-db m-id :db db))
+                       (not (card-matches-p m-id document :db db)))
+                  (scrape-gatherer-and-insert-mtg-card-into-db m-id document :db db))
                  ((valid-m-id-p m-id)
-                  (scrape-gatherer-and-insert-mtg-card-into-db m-id :db db))
+                  (scrape-gatherer-and-insert-mtg-card-into-db m-id document :db db))
                  (t (loop-finish)))
-           (incf m-id)))
+           (incf m-id)
+           (setf query (list (cons "multiverseid" (format nil "~D" m-id)))
+                 str (drakma:http-request *gatherer-card-url* :parameters query)
+                 document (chtml:parse str (cxml-stp:make-builder)))))
 
 ;; EOF
