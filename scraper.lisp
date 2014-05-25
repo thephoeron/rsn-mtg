@@ -218,26 +218,28 @@
 (defun card-matches-p (m-id card-values &key (db *default-database-connection*))
   "Compares the card DAO in the local database against card-values list parsed from Gatherer to see if all the fields match."
   (let* ((m-id-str (format nil "~D" m-id))
+         (the-set-id 0)
          (the-card nil))
-    (postmodern:with-connection db
-      (setf the-card (handler-case (postmodern:get-dao 'rsn-mtg-card (get-card-id-by-multiverse-id m-id)) (error () nil))))
     (destructuring-bind (name mana-cost color spell-type collectors-num cmc card-text flavor-text power toughness set-name rarity artist image)
         card-values
+      (postmodern:with-connection db
+        (setf the-card (handler-case (postmodern:get-dao 'rsn-mtg-card (get-card-id-by-multiverse-id m-id)) (error () nil))
+              the-set-id (handler-case (get-expansion-id-by-name set-name) (error () 0))))
       (if (and the-card
                (string-equal (name the-card) name)
                (string-equal (mana-cost the-card) mana-cost)
-               ;(string-equal (color the-card) color)
-               ;(string-equal (spell-type the-card) spell-type)
-               ;(equalp (collectors-number the-card) collectors-num)
-               ;(equalp (converted-mana-cost the-card) cmc)
-               ;(string-equal (card-text the-card) card-text)
-               ;(string-equal (flavor-text the-card) flavor-text)
-               ;(equalp (power the-card) power)
-               ;(equalp (toughness the-card) toughness)
-               ;(equalp (expansion-id the-card) the-set-id)
-               ;(string-equal (rarity the-card) rarity)
-               ;(string-equal (artist the-card) artist)
-               ;(string-equal (image the-card) image)
+               (string-equal (color the-card) color)
+               (string-equal (spell-type the-card) spell-type)
+               (eql (collectors-number the-card) collectors-num)
+               (eql (converted-mana-cost the-card) cmc)
+               (string-equal (card-text the-card) card-text)
+               (string-equal (flavor-text the-card) flavor-text)
+               (eql (power the-card) power)
+               (eql (toughness the-card) toughness)
+               (eql (expansion-id the-card) the-set-id)
+               (string-equal (rarity the-card) rarity)
+               (string-equal (artist the-card) artist)
+               (string-equal (image the-card) image)
                )
           t
           nil))))
@@ -308,7 +310,7 @@
 (defun sync-db-from-gatherer (&key (db *default-database-connection*))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 50 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i below 54 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         do (let ((m-id (+ i 1)))
              (if (card-exists-p m-id :db db)
                  (format t "~%;; Card Exists. Skipping Multiverse ID: ~D..." m-id)

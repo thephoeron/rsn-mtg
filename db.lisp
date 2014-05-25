@@ -85,7 +85,7 @@
 
 (defprepared get-card-id-by-multiverse-id
   (:select 'id :from 'rsn-mtg-card :where (:= 'm-id '$1))
-  :single!)
+  :single)
 
 (defgeneric expansion (card)
   (:documentation "Get the Set/Expansion DAO for the given card."))
