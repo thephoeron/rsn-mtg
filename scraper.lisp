@@ -156,8 +156,12 @@
                    (let* ((pt-list (split-sequence #\/ (strip-string (stp:string-value tag))))
                           (pow (car pt-list))
                           (tuf (cadr pt-list)))
-                     (setf power (parse-integer (strip-string pow) :junk-allowed t)
-                           toughness (parse-integer (strip-string tuf) :junk-allowed t)))
+                     (setf power (if (search "*" pow)
+                                     -1
+                                     (parse-integer (strip-string pow) :junk-allowed t))
+                           toughness (if (search "*" tuf)
+                                         -1
+                                         (parse-integer (strip-string tuf) :junk-allowed t))))
                    ; (format t "P/T: ~@{~A~^/~}, " power toughness)
                    )))
               ((search "setRow" (stp:attribute-value div "id") :from-end t)
@@ -260,14 +264,14 @@
                            (postmodern:with-connection db
                              (get-expansion-id-by-name set-name))
                          (error ()
-                           (format t "~%;; ~A expansion not found in local database. Creating...")
+                           (format t "~%;; ~A expansion not found in local database. Creating..." set-name)
                            (postmodern:with-connection db
                              (let* ((set-name-formatted (string-downcase (substitute #\- #\Space set-name)))
                                     (exp-symb (format nil "set-~A" set-name-formatted))
                                     (unc-symb (format nil "set-~A-uncommon" set-name-formatted))
                                     (rare-symb (format nil "set-~A-rare" set-name-formatted))
                                     (myth-symb (format nil "set-~A-mythic" set-name-formatted))
-                                    (the-set (postmodern:make-dao 'rsn-mtg-expansion :name set-name :exp-symbol exp-symb :uncommon-symbol unc-symb :rare-symb :mythic-symbol myth-symb :total-cards 0)))
+                                    (the-set (postmodern:make-dao 'rsn-mtg-expansion :name set-name :exp-symbol exp-symb :uncommon-symbol unc-symb :rare-symbol rare-symb :mythic-symbol myth-symb :total-cards 0)))
                                (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape)
                                (id the-set))))))
            (the-card nil))
@@ -323,7 +327,7 @@
 (defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil) (verbose nil))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 72 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i below 1000 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         do (let ((m-id (+ i 1)))
              (if (and (card-exists-p m-id :db db)
                       (not update-p))
