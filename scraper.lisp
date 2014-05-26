@@ -256,7 +256,20 @@
   (destructuring-bind (name mana-cost color spell-type collectors-num converted-mana-cost card-text flavor-text power toughness set-name rarity artist image)
       card-values
     (let* ((full-image-path (concatenate 'string (namestring *default-img-dir*) image))
-           (the-set-id (handler-case (postmodern:with-connection db (get-expansion-id-by-name set-name)) (error () nil)))
+           (the-set-id (handler-case
+                           (postmodern:with-connection db
+                             (get-expansion-id-by-name set-name))
+                         (error ()
+                           (format t "~%;; ~A expansion not found in local database. Creating...")
+                           (postmodern:with-connection db
+                             (let* ((set-name-formatted (string-downcase (substitute #\- #\Space set-name)))
+                                    (exp-symb (format nil "set-~A" set-name-formatted))
+                                    (unc-symb (format nil "set-~A-uncommon" set-name-formatted))
+                                    (rare-symb (format nil "set-~A-rare" set-name-formatted))
+                                    (myth-symb (format nil "set-~A-mythic" set-name-formatted))
+                                    (the-set (postmodern:make-dao 'rsn-mtg-expansion :name set-name :exp-symbol exp-symb :uncommon-symbol unc-symb :rare-symb :mythic-symbol myth-symb :total-cards 0)))
+                               (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape)
+                               (id the-set))))))
            (the-card nil))
       (if (card-exists-p m-id :db db)
           (handler-case
@@ -341,6 +354,19 @@
                          ((valid-m-id-p parsed-card-values)
                           (scrape-gatherer-and-insert-mtg-card-into-db m-id parsed-card-values :db db))
                          (t (loop-finish)))))))
+  (format t "~%;; Updating card counts for Expansions...")
+  (postmodern:with-connection db
+    (let ((expansion-sets (postmodern:query
+                            (:select '* :from 'rsn-mtg-expansion)
+                            (:dao rsn-mtg-expansion))))
+      (loop for set in expansion-sets
+            do (let* ((set-id (id set))
+                      (set-name (name set))
+                      (count (postmodern:query (:select (:count '*) :from 'rsn-mtg-card :where (:= 'expansion-id set-id)) :single)))
+                 (when (/= (total-cards set) count)
+                   (setf (total-cards set) count)
+                   (postmodern:update-dao set))
+                 (format t "~%;; ~A: ~D Cards in local database" set-name count)))))
   (format t "~%;; Sync Complete."))
 
 ;; EOF
