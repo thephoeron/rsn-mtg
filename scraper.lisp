@@ -307,14 +307,18 @@
 ;   (format t "~%;; Updating Multiverse ID: ~D DAO record... " m-id)
 ;   (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape))
 
-(defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil))
+(defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil) (verbose nil))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 54 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i below 72 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         do (let ((m-id (+ i 1)))
              (if (and (card-exists-p m-id :db db)
                       (not update-p))
-                 (format t "~%;; Multiverse ID: ~D found in local database. Skipping..." m-id)
+                 (if verbose
+                     (format t "~%;; Multiverse ID: ~D found in local database. Skipping..." m-id)
+                     (progn
+                       (format t "~C" #\.)
+                       (finish-output)))
                  (let* ((m-id-str (format nil "~D" m-id))
                         (query (list (cons "multiverseid" m-id-str)))
                         (input (drakma:http-request *gatherer-card-url* :parameters query))
@@ -322,13 +326,21 @@
                         (parsed-card-values (parse-card m-id document)))
                    (cond ((not m-id) nil)
                          ((not (valid-m-id-p parsed-card-values))
-                          (format t "~%;; Multiverse ID: ~D does not specify a valid MTG Card. Skipping..." m-id))
+                          (if verbose
+                              (format t "~%;; Multiverse ID: ~D does not specify a valid MTG Card. Skipping..." m-id)
+                              (progn
+                                (format t "~C" #\.)
+                                (finish-output))))
                          ((and (card-exists-p m-id :db db)
                                (card-matches-p m-id parsed-card-values :db db))
-                          (format t "~%;; Multiverse ID: ~D found in local database and matches Gatherer. Skipping..." m-id))
+                          (if verbose
+                              (format t "~%;; Multiverse ID: ~D found in local database and matches Gatherer. Skipping..." m-id)
+                              (progn
+                                (format t "~C" #\.)
+                                (finish-output))))
                          ((valid-m-id-p parsed-card-values)
                           (scrape-gatherer-and-insert-mtg-card-into-db m-id parsed-card-values :db db))
-                         (t (loop-finish)))
-                   )))))
+                         (t (loop-finish)))))))
+  (format t "~%;; Sync Complete."))
 
 ;; EOF
