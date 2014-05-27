@@ -158,10 +158,14 @@
                           (tuf (cadr pt-list)))
                      (setf power (if (search "*" pow)
                                      -1
-                                     (parse-integer (strip-string pow) :junk-allowed t))
+                                     (handler-case
+                                         (parse-integer (strip-string pow))
+                                       (error () -406)))
                            toughness (if (search "*" tuf)
                                          -1
-                                         (parse-integer (strip-string tuf) :junk-allowed t))))
+                                         (handler-case
+                                             (parse-integer (strip-string tuf))
+                                           (error () -406)))))
                    ; (format t "P/T: ~@{~A~^/~}, " power toughness)
                    )))
               ((search "setRow" (stp:attribute-value div "id") :from-end t)
@@ -312,7 +316,8 @@
                 ; (format t "DAO instantiated: ~S " the-card)
                 (postmodern:save-dao the-card)
                 ; (format t "Insert successful~A" ". ")
-                (download-and-save-card-image m-id full-image-path)
+                (unless (probe-file full-image-path)
+                  (download-and-save-card-image m-id full-image-path))
                 (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape))
             ;(error () (format t "~C[31;1m~C~C[0m" #\Escape (code-char #x2718) #\Escape))
             ))
@@ -327,7 +332,7 @@
 (defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil) (verbose nil))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 1000 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i below 380515 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
         do (let ((m-id (+ i 1)))
              (if (and (card-exists-p m-id :db db)
                       (not update-p))
