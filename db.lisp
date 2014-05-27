@@ -96,7 +96,7 @@
 
 ;; CARD QUANTITY Table
 
-(defclass rsn-mtg-quantity ()
+(defclass rsn-mtg-inventory ()
   ((ID :col-type serial :initarg :id :reader id)
    (CARD-ID :col-type integer :initarg :card-id :accessor card-id)
    (PLAYER-ID :col-type integer :initarg :player-id :accessor player-id)
@@ -107,20 +107,20 @@
   (:metaclass dao-class)
   (:keys id))
 
-(deftable rsn-mtg-quantity
+(deftable rsn-mtg-inventory
   (!dao-def)
   (!foreign 'rsn-mtg-card 'card-id :primary-key :on-delete :cascade :on-update :cascade)
-  (!foreign 'rsn-auth-player-profile 'player-id :primary-key :on-delete :cascade :on-update :cascade))
+  (!foreign 'rsn-mtg-player-profile 'player-id :primary-key :on-delete :cascade :on-update :cascade))
 
 (defgeneric card (dao))
 
-(defmethod card ((dao rsn-mtg-quantity))
+(defmethod card ((dao rsn-mtg-inventory))
   (let ((card-id (slot-value dao 'card-id)))
     (postmodern:get-dao 'rsn-mtg-card card-id)))
 
 (defgeneric player (dao))
 
-(defmethod player ((dao rsn-mtg-quantity))
+(defmethod player ((dao rsn-mtg-inventory))
   (let ((player-id (slot-value dao 'player-id)))
     (postmodern:get-dao 'rsn-mtg-player-profile player-id)))
 
@@ -129,7 +129,7 @@
 (defmethod reg-quantity ((card rsn-mtg-card) (player rsn-mtg-player-profile))
   (let ((card-id (slot-value card 'card-id))
         (player-id (slot-value player 'player-id)))
-    (postmodern:query (:select (:count '*) :from 'rsn-mtg-quantity
+    (postmodern:query (:select (:count '*) :from 'rsn-mtg-inventory
                                :where (:and (:= 'card-id card-id)
                                             (:= 'player-id player-id)
                                             (:= 'is-foil nil)))
@@ -140,7 +140,7 @@
 (defmethod foil-quantity ((card rsn-mtg-card) (player rsn-mtg-player-profile))
   (let ((card-id (slot-value card 'card-id))
         (player-id (slot-value player 'player-id)))
-    (postmodern:query (:select (:count '*) :from 'rsn-mtg-quantity
+    (postmodern:query (:select (:count '*) :from 'rsn-mtg-inventory
                                :where (:and (:= 'card-id card-id)
                                             (:= 'player-id player-id)
                                             (:= 'is-foil t)))
@@ -151,7 +151,7 @@
 (defmethod total-quantity ((card rsn-mtg-card) (player rsn-mtg-player-profile))
   (let ((card-id (slot-value card 'card-id))
         (player-id (slot-value player 'player-id)))
-    (postmodern:query (:select (:count '*) :from 'rsn-mtg-quantity
+    (postmodern:query (:select (:count '*) :from 'rsn-mtg-inventory
                                :where (:and (:= 'card-id card-id)
                                             (:= 'player-id player-id)))
                       :single)))
@@ -186,8 +186,7 @@
   (:keys id))
 
 (deftable rsn-mtg-deck
-  (!dao-def)
-  (!foreign))
+  (!dao-def))
 
 (defclass rsn-mtg-deck-cards ()
   ((ID :col-type serial :initarg :id :reader id)
