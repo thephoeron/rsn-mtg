@@ -252,6 +252,8 @@
           t
           nil))))
 
+;; Rewrite this function as a member-of set test
+;; needs a precompiled list of valid M-IDs, tested using the current following code
 (defun valid-m-id-p (card-values)
   "Tests the parsed card data from Gatherer database for validity."
   (let ((card-name (car card-values)))
@@ -329,10 +331,10 @@
 ;   (format t "~%;; Updating Multiverse ID: ~D DAO record... " m-id)
 ;   (format t "~C[32;1m~C~C[0m" #\Escape (code-char #x2714) #\Escape))
 
-(defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil) (verbose nil))
+(defun sync-db-from-gatherer (&key (db *default-database-connection*) (update-p nil) (verbose nil) (start 0) (end 380515))
   "Calls the web-scraper to search the official Gatherer DB, and builds DAOs for each object not in the local database."
   (format t "~%;; Syncing local database ~{~A~} from Gatherer..." (last db))
-  (loop for i below 380515 ;; set this number low for testing; as of Journey into Nyx there are under 400,000 cards in Gatherer
+  (loop for i from start below end ;; set this number low for testing; as of Journey into Nyx, Multiverse IDs go up to 380,515
         do (let ((m-id (+ i 1)))
              (if (and (card-exists-p m-id :db db)
                       (not update-p))
